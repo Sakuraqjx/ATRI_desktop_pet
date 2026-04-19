@@ -1,6 +1,6 @@
 # Java Desktop Pet
 
-这是一个以 `Java` 为逻辑核心的桌宠项目，当前结构已经切成：
+这是一个以 `Java` 为逻辑核心的桌宠项目,结构：
 
 - `Java backend`
   负责状态、行为、插件、随机待机、菜单命令、本地 API
@@ -9,7 +9,7 @@
 - `Live2D page`
   负责 ATRI 模型加载、动作播放、表情切换、鼠标视线跟随
 
-这次切方案的原因很直接：之前的 `JCEF + OSR` 路线在这台机器上拿不到可用的 `stencil buffer`，会导致 Live2D 遮罩渲染失败，所以改成了独立 Chromium 壳层。
+使用独立 Chromium 壳层。
 
 ## 技术结构
 
@@ -82,10 +82,3 @@ powershell -ExecutionPolicy Bypass -File .\start-pet.ps1 --check
 - [desktop-shell/electron-shell.out.log](</g:/code/11/desktop-shell/electron-shell.out.log>)
 - [desktop-shell/electron-shell.err.log](</g:/code/11/desktop-shell/electron-shell.err.log>)
 
-## 下一步适合继续做的事
-
-1. 把远程运行时脚本改成本地离线依赖
-2. 给 ATRI 补更多动作映射，而不是先复用 `TapBody`
-3. 加系统托盘、开机自启和隐藏/显示
-4. 加喂食、心情值、亲密度成长
-5. 接语音、提醒事项或 AI 对话模块
