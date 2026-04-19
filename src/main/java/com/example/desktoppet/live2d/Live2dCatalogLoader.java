@@ -362,7 +362,7 @@ public final class Live2dCatalogLoader {
 
     private String prettifyParameterLabel(ExpressionParameter parameter, String baseLabel) {
         if (baseLabel.contains("枕头")) {
-            return baseLabel + (parameter.value() >= 0 ? " NO" : " YES");
+            return baseLabel + (parameter.value() >= 0 ? " YES" : " NO");
         }
         return baseLabel;
     }
