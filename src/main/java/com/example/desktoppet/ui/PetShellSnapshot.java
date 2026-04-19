@@ -10,6 +10,8 @@ public record PetShellSnapshot(
         String expressionKind,
         String expressionValue,
         long expressionRevision,
+        List<String> overlayExpressions,
+        long overlayRevision,
         String outfitExpression,
         List<Live2dParameterValue> outfitParameters,
         long outfitRevision,

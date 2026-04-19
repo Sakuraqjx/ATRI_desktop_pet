@@ -11,6 +11,7 @@ import com.example.desktoppet.live2d.Live2dOutfit;
 import com.example.desktoppet.plugin.MenuCommand;
 import com.example.desktoppet.plugin.PetPlugin;
 
+import java.util.LinkedHashSet;
 import java.util.ServiceLoader;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -54,7 +55,7 @@ public final class PetEngine {
     private void registerBuiltInMenu() {
         context.addMenuCommand(new MenuCommand("action.greet", "互动/打个招呼", () -> context.runAction("greet")));
         context.addMenuCommand(new MenuCommand("action.play", "互动/一起玩", () -> context.runAction("play")));
-        context.addMenuCommand(new MenuCommand("action.nap", "互动/先休息", () -> context.runAction("nap")));
+        context.addMenuCommand(new MenuCommand("action.nap", "互动/先休息一下", () -> context.runAction("nap")));
         context.addMenuCommand(new MenuCommand("action.think", "互动/发会呆", () -> context.runAction("think")));
         context.addMenuCommand(new MenuCommand("idle.enable", "待机/开启自动互动", this::enableIdleLoop));
         context.addMenuCommand(new MenuCommand("idle.disable", "待机/暂停自动互动", this::disableIdleLoop));
@@ -65,11 +66,32 @@ public final class PetEngine {
     }
 
     private void registerExpressionMenu(Live2dModel activeModel) {
+        LinkedHashSet<String> toggleCategories = new LinkedHashSet<>();
         for (Live2dMenuExpression expression : activeModel.menuExpressions()) {
+            if (expression.toggleable()) {
+                toggleCategories.add(expression.category());
+            }
             context.addMenuCommand(new MenuCommand(
                     "expression." + expression.id(),
                     "表情/" + expression.label(),
-                    () -> switchExpression(expression.expression(), expression.message())
+                    () -> {
+                        if (expression.toggleable()) {
+                            toggleExpression(expression);
+                        } else {
+                            switchExpression(expression.expression(), expression.message());
+                        }
+                    }
+            ));
+        }
+
+        for (String category : toggleCategories) {
+            if (category == null || category.isBlank()) {
+                continue;
+            }
+            context.addMenuCommand(new MenuCommand(
+                    "expression.clear." + category,
+                    "表情/" + category + "/关闭当前",
+                    () -> clearExpressionCategory(category)
             ));
         }
     }
@@ -89,6 +111,21 @@ public final class PetEngine {
         context.getPetView().showMessage(message);
     }
 
+    private void toggleExpression(Live2dMenuExpression expression) {
+        boolean enabled = context.getPetView().toggleOverlayExpression(expression.category(), expression.expression());
+        String leafLabel = leafLabel(expression.label());
+        context.getPetView().showMessage(enabled
+                ? "已开启 " + leafLabel + "。"
+                : "已关闭 " + leafLabel + "。");
+    }
+
+    private void clearExpressionCategory(String category) {
+        boolean changed = context.getPetView().clearOverlayCategory(category);
+        context.getPetView().showMessage(changed
+                ? "已关闭 " + category + "。"
+                : category + " 当前没有开启项。");
+    }
+
     private void switchOutfit(Live2dOutfit outfit) {
         context.getPetView().applyOutfit(outfit);
         context.getPetView().showMessage(outfit.message());
@@ -103,7 +140,7 @@ public final class PetEngine {
 
     private void enableIdleLoop() {
         boolean changed = idleEnabled.compareAndSet(false, true);
-        context.getPetView().showMessage(changed ? "自动互动已开启，频率也调慢了。" : "自动互动本来就是开启的。");
+        context.getPetView().showMessage(changed ? "自动互动已开启，频率已经放慢。" : "自动互动本来就是开启的。");
     }
 
     private void disableIdleLoop() {
@@ -140,5 +177,13 @@ public final class PetEngine {
             context.runAction("nap");
         }
         context.getEventBus().publish(new PetActionEvent("idle-loop"));
+    }
+
+    private String leafLabel(String label) {
+        if (label == null || label.isBlank()) {
+            return "表情";
+        }
+        int slash = label.lastIndexOf('/');
+        return slash >= 0 ? label.substring(slash + 1) : label;
     }
 }

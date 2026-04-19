@@ -31,38 +31,7 @@
           "index": 1
         }
       },
-      "menuExpressions": [
-        {
-          "id": "neutral",
-          "label": "中性",
-          "expression": "neutral",
-          "message": "恢复成平静表情。"
-        },
-        {
-          "id": "curious",
-          "label": "好奇",
-          "expression": "curious",
-          "message": "我在认真看着你。"
-        },
-        {
-          "id": "happy",
-          "label": "开心",
-          "expression": "happy",
-          "message": "见到你就会开心。"
-        },
-        {
-          "id": "sleepy",
-          "label": "困倦",
-          "expression": "sleepy",
-          "message": "让我先眯一会。"
-        },
-        {
-          "id": "excited",
-          "label": "兴奋",
-          "expression": "excited",
-          "message": "好耶，来点有趣的。"
-        }
-      ],
+      "menuExpressions": [],
       "outfits": [
         {
           "id": "base",

@@ -4,6 +4,7 @@ import com.example.desktoppet.live2d.Live2dModel;
 import com.example.desktoppet.live2d.Live2dOutfit;
 import com.example.desktoppet.model.PetState;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -12,6 +13,7 @@ public final class PetView {
 
     private final AtomicLong messageRevision = new AtomicLong();
     private final AtomicLong expressionRevision = new AtomicLong();
+    private final AtomicLong overlayRevision = new AtomicLong();
     private final AtomicLong outfitRevision = new AtomicLong();
     private final AtomicLong motionRevision = new AtomicLong();
     private final Object stateLock = new Object();
@@ -29,6 +31,7 @@ public final class PetView {
     private String transientExpressionKind;
     private String transientExpressionValue;
     private long transientExpressionExpiresAt;
+    private final LinkedHashMap<String, String> overlayExpressionsByCategory = new LinkedHashMap<>();
     private Live2dOutfit currentOutfit;
 
     public PetView(Live2dModel live2dModel) {
@@ -75,6 +78,32 @@ public final class PetView {
         setTransientExpression("named", expressionName, durationMillis);
     }
 
+    public boolean toggleOverlayExpression(String category, String expressionName) {
+        synchronized (stateLock) {
+            String currentExpression = overlayExpressionsByCategory.get(category);
+            boolean enabled;
+            if (expressionName != null && expressionName.equals(currentExpression)) {
+                overlayExpressionsByCategory.remove(category);
+                enabled = false;
+            } else {
+                overlayExpressionsByCategory.put(category, expressionName);
+                enabled = true;
+            }
+            overlayRevision.incrementAndGet();
+            return enabled;
+        }
+    }
+
+    public boolean clearOverlayCategory(String category) {
+        synchronized (stateLock) {
+            if (overlayExpressionsByCategory.remove(category) != null) {
+                overlayRevision.incrementAndGet();
+                return true;
+            }
+            return false;
+        }
+    }
+
     public void applyOutfit(Live2dOutfit outfit) {
         if (outfit == null) {
             return;
@@ -108,8 +137,10 @@ public final class PetView {
     public PetShellSnapshot snapshot(PetState petState) {
         ExpressionState expressionState = resolveExpressionState();
         Live2dOutfit snapshotOutfit;
+        List<String> overlayExpressions;
         synchronized (stateLock) {
             snapshotOutfit = currentOutfit;
+            overlayExpressions = List.copyOf(overlayExpressionsByCategory.values());
         }
 
         return new PetShellSnapshot(
@@ -118,6 +149,8 @@ public final class PetView {
                 expressionState.kind(),
                 expressionState.value(),
                 expressionRevision.get(),
+                overlayExpressions,
+                overlayRevision.get(),
                 snapshotOutfit == null ? null : snapshotOutfit.expression(),
                 snapshotOutfit == null ? List.of() : snapshotOutfit.parameterValues(),
                 outfitRevision.get(),

@@ -11,6 +11,7 @@
     const state = {
         messageRevision: -1,
         expressionRevision: -1,
+        overlayRevision: -1,
         outfitRevision: -1,
         motionRevision: -1
     };
@@ -24,8 +25,10 @@
     let pointerStart = null;
     let statusHideTimer = null;
     let expressionFileMap = null;
+    let expressionParameterCache = new Map();
     let outfitParameterCache = new Map();
-    let currentOutfitExpression = null;
+    let currentBaseExpressionParameters = null;
+    let currentOverlayParameterSets = [];
     let currentOutfitParameters = null;
 
     function backendUrl(path) {
@@ -136,7 +139,9 @@
         });
 
         app.ticker.add(() => {
+            enforceBaseExpressionParameters();
             enforceOutfitParameters();
+            enforceOverlayParameters();
         });
 
         const renderer = app.renderer;
@@ -159,8 +164,10 @@
         }
 
         expressionFileMap = null;
+        expressionParameterCache = new Map();
         outfitParameterCache = new Map();
-        currentOutfitExpression = null;
+        currentBaseExpressionParameters = null;
+        currentOverlayParameterSets = [];
         currentOutfitParameters = null;
 
         const Live2DModel = window.PIXI.live2d.Live2DModel;
@@ -220,18 +227,35 @@
         return lastSlash >= 0 ? modelConfig.entry.slice(0, lastSlash + 1) : "";
     }
 
-    function normalizeOutfitParameters(parameters) {
+    function normalizeParameters(parameters, idKey, valueKey, blendKey) {
         if (!Array.isArray(parameters) || parameters.length === 0) {
             return null;
         }
 
         return parameters
-            .filter((parameter) => parameter && typeof parameter.id === "string")
+            .filter((parameter) => parameter && typeof parameter[idKey] === "string")
             .map((parameter) => ({
-                id: parameter.id,
-                value: Number(parameter.value ?? 0),
-                blend: String(parameter.blend ?? "Overwrite")
+                id: parameter[idKey],
+                value: Number(parameter[valueKey] ?? 0),
+                blend: String(parameter[blendKey] ?? "Overwrite")
             }));
+    }
+
+    async function loadExpressionParameters(expressionName) {
+        if (!expressionName) {
+            return null;
+        }
+        if (expressionParameterCache.has(expressionName)) {
+            return expressionParameterCache.get(expressionName);
+        }
+
+        const fileMap = await ensureExpressionFileMap();
+        const relativeFile = fileMap.get(expressionName) || `${expressionName}.exp3.json`;
+        const payload = await fetchJson(`/${modelBaseDir()}${relativeFile}`).catch(() => null);
+        const parameters = payload ? normalizeParameters(payload.Parameters, "Id", "Value", "Blend") : null;
+
+        expressionParameterCache.set(expressionName, parameters);
+        return parameters;
     }
 
     async function loadOutfitParameters(expressionName) {
@@ -243,70 +267,115 @@
         }
 
         const fileMap = await ensureExpressionFileMap();
-        const relativeFile = fileMap.get(expressionName);
-        if (!relativeFile) {
-            report("warn", `outfit expression not found: ${expressionName}`);
-            outfitParameterCache.set(expressionName, null);
-            return null;
-        }
-
-        const payload = await fetchJson(`/${modelBaseDir()}${relativeFile}`);
-        const parameters = Array.isArray(payload?.Parameters)
-            ? payload.Parameters
-                .filter((parameter) => parameter && typeof parameter.Id === "string")
-                .map((parameter) => ({
-                    id: parameter.Id,
-                    value: Number(parameter.Value ?? 0),
-                    blend: String(parameter.Blend ?? "Overwrite")
-                }))
-            : [];
+        const relativeFile = fileMap.get(expressionName) || `${expressionName}.exp3.json`;
+        const payload = await fetchJson(`/${modelBaseDir()}${relativeFile}`).catch(() => null);
+        const parameters = payload ? normalizeParameters(payload.Parameters, "Id", "Value", "Blend") : null;
 
         outfitParameterCache.set(expressionName, parameters);
         return parameters;
     }
 
-    async function applyOutfit(expressionName, inlineParameters) {
-        currentOutfitExpression = expressionName || null;
-        currentOutfitParameters = normalizeOutfitParameters(inlineParameters);
-        if (!currentOutfitParameters && currentOutfitExpression) {
-            currentOutfitParameters = await loadOutfitParameters(currentOutfitExpression);
-        }
-        enforceOutfitParameters();
-    }
-
-    function enforceOutfitParameters() {
-        if (!model || !currentOutfitParameters || currentOutfitParameters.length === 0) {
+    function clearParameterSet(parameters) {
+        if (!model || !parameters || parameters.length === 0) {
             return;
         }
 
         const coreModel = model?.internalModel?.coreModel;
-        if (!coreModel) {
+        if (!coreModel || typeof coreModel.setParameterValueById !== "function") {
             return;
         }
 
-        for (const parameter of currentOutfitParameters) {
-            if (parameter.blend === "Add" && typeof coreModel.addParameterValueById === "function") {
-                coreModel.addParameterValueById(parameter.id, parameter.value);
-                continue;
-            }
-            if (typeof coreModel.setParameterValueById === "function") {
-                coreModel.setParameterValueById(parameter.id, parameter.value);
-            }
+        for (const parameter of parameters) {
+            coreModel.setParameterValueById(parameter.id, 0);
         }
     }
 
-    async function applyExpression(kind, value) {
-        if (!model || typeof model.expression !== "function") {
+    async function applyOutfit(expressionName, inlineParameters) {
+        if (currentOutfitParameters) {
+            clearParameterSet(currentOutfitParameters);
+        }
+
+        currentOutfitParameters = normalizeParameters(inlineParameters, "id", "value", "blend");
+        if (!currentOutfitParameters && expressionName) {
+            currentOutfitParameters = await loadOutfitParameters(expressionName);
+        }
+        enforceOutfitParameters();
+    }
+
+    async function applyBaseExpression(kind, value) {
+        if (!model) {
             return;
+        }
+
+        if (currentBaseExpressionParameters) {
+            clearParameterSet(currentBaseExpressionParameters);
         }
 
         const aliases = modelConfig?.expressionAliases || {};
         const expressionName = kind === "named" ? value : (aliases[value] || value);
+        currentBaseExpressionParameters = await loadExpressionParameters(expressionName);
+
+        if (currentBaseExpressionParameters && currentBaseExpressionParameters.length > 0) {
+            enforceBaseExpressionParameters();
+            return;
+        }
+
+        if (typeof model.expression !== "function") {
+            return;
+        }
 
         try {
             await model.expression(expressionName);
         } catch (error) {
             report("error", `expression failed: ${error.stack || error.message}`);
+        }
+    }
+
+    async function applyOverlayExpressions(expressionNames) {
+        for (const parameters of currentOverlayParameterSets) {
+            clearParameterSet(parameters);
+        }
+
+        currentOverlayParameterSets = [];
+        if (!Array.isArray(expressionNames) || expressionNames.length === 0) {
+            return;
+        }
+
+        for (const expressionName of expressionNames) {
+            const parameters = await loadExpressionParameters(expressionName);
+            if (parameters && parameters.length > 0) {
+                currentOverlayParameterSets.push(parameters);
+            }
+        }
+        enforceOverlayParameters();
+    }
+
+    function applyParameterSet(parameters) {
+        if (!model || !parameters || parameters.length === 0) {
+            return;
+        }
+
+        const coreModel = model?.internalModel?.coreModel;
+        if (!coreModel || typeof coreModel.setParameterValueById !== "function") {
+            return;
+        }
+
+        for (const parameter of parameters) {
+            coreModel.setParameterValueById(parameter.id, parameter.value);
+        }
+    }
+
+    function enforceBaseExpressionParameters() {
+        applyParameterSet(currentBaseExpressionParameters);
+    }
+
+    function enforceOutfitParameters() {
+        applyParameterSet(currentOutfitParameters);
+    }
+
+    function enforceOverlayParameters() {
+        for (const parameters of currentOverlayParameterSets) {
+            applyParameterSet(parameters);
         }
     }
 
@@ -346,7 +415,12 @@
 
         if (snapshot.expressionRevision !== state.expressionRevision) {
             state.expressionRevision = snapshot.expressionRevision;
-            await applyExpression(snapshot.expressionKind, snapshot.expressionValue);
+            await applyBaseExpression(snapshot.expressionKind, snapshot.expressionValue);
+        }
+
+        if (snapshot.overlayRevision !== state.overlayRevision) {
+            state.overlayRevision = snapshot.overlayRevision;
+            await applyOverlayExpressions(snapshot.overlayExpressions);
         }
 
         if (snapshot.motionRevision !== state.motionRevision) {
