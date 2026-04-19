@@ -38,7 +38,7 @@ if not exist "desktop-shell\node_modules\electron" (
 )
 
 echo [INFO] Launching Java desktop pet backend...
-mvn -q exec:java 1> desktop-pet.out.log 2> desktop-pet.err.log
+mvn -q compile exec:java 1> desktop-pet.out.log 2> desktop-pet.err.log
 
 if errorlevel 1 (
     echo.

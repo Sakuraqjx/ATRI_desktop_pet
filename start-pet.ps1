@@ -32,4 +32,4 @@ if (-not (Test-Path "desktop-shell\node_modules\electron")) {
 }
 
 Write-Host "[INFO] Launching Java desktop pet backend..." -ForegroundColor Cyan
-mvn -q exec:java 1> desktop-pet.out.log 2> desktop-pet.err.log
+mvn -q compile exec:java 1> desktop-pet.out.log 2> desktop-pet.err.log

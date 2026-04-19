@@ -65,7 +65,7 @@ desktop-shell
 也可以手动运行：
 
 ```bash
-mvn -q exec:java
+mvn -q compile exec:java
 ```
 
 脚本自检：
