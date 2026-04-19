@@ -1,0 +1,62 @@
+{
+  "Version": 3,
+  "FileReferences": {
+    "Moc": "atri_8.moc3",
+    "Textures": [
+      "atri_8.4096/texture_00.png",
+      "atri_8.4096/texture_01.png"
+    ],
+    "Physics": "atri_8.physics3.json",
+    "DisplayInfo": "atri_8.cdi3.json",
+    "Expressions": [
+      {
+        "Name": "neutral",
+        "File": "neutral.exp3.json"
+      },
+      {
+        "Name": "curious",
+        "File": "curious.exp3.json"
+      },
+      {
+        "Name": "happy",
+        "File": "happy.exp3.json"
+      },
+      {
+        "Name": "sleepy",
+        "File": "sleepy.exp3.json"
+      },
+      {
+        "Name": "excited",
+        "File": "excited.exp3.json"
+      }
+    ],
+    "Motions": {
+      "TapBody": [
+        {
+          "File": "dec-l.motion3.json"
+        },
+        {
+          "File": "dec-r.motion3.json"
+        }
+      ]
+    }
+  },
+  "Groups": [
+    {
+      "Target": "Parameter",
+      "Name": "EyeBlink",
+      "Ids": [
+        "ParamEyeLOpen",
+        "ParamEyeROpen"
+      ]
+    },
+    {
+      "Target": "Parameter",
+      "Name": "LipSync",
+      "Ids": [
+        "ParamMouthForm",
+        "ParamMouthOpenY"
+      ]
+    }
+  ]
+}

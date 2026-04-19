@@ -1,0 +1,34 @@
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# Node / Electron
+node_modules/
+desktop-shell/node_modules/
+
+# Runtime bundles and temp research dirs
+.jcef-bundle/
+.tmp-*/
+
+# Logs
+*.log
+desktop-pet.out.log
+desktop-pet.err.log
+jcef-run.out
+jcef-run.err
+debug.log
+desktop-shell/*.log
+
+# IDE / OS
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.*

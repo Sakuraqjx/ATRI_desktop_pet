@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATRI Desktop Pet</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<main class="stage">
+    <div id="pet-shell" class="pet-shell" title="点击互动，右键打开菜单">
+        <canvas id="live2d-canvas" class="live2d-canvas"></canvas>
+        <div id="loading-layer" class="loading-layer" aria-hidden="true">
+            <img class="fallback-image" src="./atri/icon.jpg" alt="ATRI preview">
+        </div>
+        <div id="pet-status" class="pet-status is-hidden">正在唤醒 ATRI...</div>
+    </div>
+</main>
+<script src="./app.js"></script>
+</body>
+</html>

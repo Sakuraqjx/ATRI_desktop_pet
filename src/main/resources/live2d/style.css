@@ -1,0 +1,132 @@
+:root {
+    color-scheme: light;
+    --accent: #694321;
+    --status-bg: rgba(255, 248, 236, 0.92);
+    --status-border: rgba(118, 82, 39, 0.34);
+}
+
+html,
+body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: transparent;
+    font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
+}
+
+.stage,
+.pet-shell {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+}
+
+.pet-shell {
+    position: relative;
+    user-select: none;
+    cursor: grab;
+}
+
+.pet-shell:active {
+    cursor: grabbing;
+}
+
+.live2d-canvas,
+.loading-layer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.live2d-canvas {
+    display: block;
+    background: transparent;
+}
+
+.loading-layer {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    background: transparent;
+    transition: opacity 220ms ease;
+}
+
+.loading-layer.is-hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.fallback-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 14px 28px rgba(53, 31, 10, 0.2));
+}
+
+.pet-status {
+    position: absolute;
+    left: 50%;
+    bottom: 14px;
+    transform: translateX(-50%);
+    min-width: 170px;
+    max-width: 280px;
+    padding: 7px 14px;
+    border-radius: 999px;
+    background: var(--status-bg);
+    border: 1px solid var(--status-border);
+    color: var(--accent);
+    font-size: 12px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 12px 24px rgba(74, 44, 14, 0.15);
+}
+
+.pet-status.is-hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.pet-shell.motion-bounce {
+    animation: motionBounce 280ms ease;
+}
+
+.pet-shell.motion-jump {
+    animation: motionJump 420ms ease;
+}
+
+.pet-shell.motion-rest {
+    animation: motionRest 920ms ease;
+}
+
+.pet-shell.motion-tilt {
+    animation: motionTilt 360ms ease;
+}
+
+@keyframes motionBounce {
+    0% { transform: scale(1); }
+    45% { transform: scale(1.06); }
+    100% { transform: scale(1); }
+}
+
+@keyframes motionJump {
+    0% { transform: translateY(0); }
+    35% { transform: translateY(-18px); }
+    70% { transform: translateY(2px); }
+    100% { transform: translateY(0); }
+}
+
+@keyframes motionRest {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(0.985); opacity: 0.86; }
+}
+
+@keyframes motionTilt {
+    0% { transform: rotate(-5deg); }
+    50% { transform: rotate(5deg); }
+    100% { transform: rotate(0deg); }
+}

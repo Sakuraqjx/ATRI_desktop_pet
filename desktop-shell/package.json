@@ -1,0 +1,13 @@
+{
+  "name": "desktop-pet-shell",
+  "version": "0.1.0",
+  "private": true,
+  "main": "main.js",
+  "description": "Transparent Electron shell for the Java desktop pet.",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "41.2.1"
+  }
+}
