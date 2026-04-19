@@ -2,6 +2,7 @@ package com.example.desktoppet.ui;
 
 import com.example.desktoppet.core.PetContext;
 import com.example.desktoppet.plugin.MenuCommand;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -25,6 +26,7 @@ public final class PetBackendServer {
     private final PetContext context;
     private final PetView petView;
     private final Runnable shutdownHandler;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private HttpServer server;
 
@@ -38,6 +40,7 @@ public final class PetBackendServer {
     public void start() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/api/state", this::handleState);
+        server.createContext("/api/model", this::handleModel);
         server.createContext("/api/interaction", this::handleInteraction);
         server.createContext("/api/menu", this::handleMenu);
         server.createContext("/api/menu/execute", this::handleMenuExecute);
@@ -69,18 +72,16 @@ public final class PetBackendServer {
         }
 
         PetShellSnapshot snapshot = petView.snapshot(context.getPetState());
-        String json = "{"
-                + "\"message\":\"" + escapeJson(snapshot.message()) + "\","
-                + "\"messageRevision\":" + snapshot.messageRevision() + ","
-                + "\"expressionKind\":\"" + escapeJson(snapshot.expressionKind()) + "\","
-                + "\"expressionValue\":\"" + escapeJson(snapshot.expressionValue()) + "\","
-                + "\"expressionRevision\":" + snapshot.expressionRevision() + ","
-                + "\"motionGroup\":\"" + escapeJson(snapshot.motionGroup()) + "\","
-                + "\"motionName\":\"" + escapeJson(snapshot.motionName()) + "\","
-                + "\"motionRevision\":" + snapshot.motionRevision() + ","
-                + "\"stateSummary\":\"" + escapeJson(snapshot.stateSummary()) + "\""
-                + "}";
-        sendJson(exchange, 200, json);
+        sendJson(exchange, 200, snapshot);
+    }
+
+    private void handleModel(HttpExchange exchange) throws IOException {
+        if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+            sendText(exchange, 405, "Method Not Allowed");
+            return;
+        }
+
+        sendJson(exchange, 200, petView.getLive2dModel());
     }
 
     private void handleInteraction(HttpExchange exchange) throws IOException {
@@ -102,7 +103,7 @@ public final class PetBackendServer {
             default -> System.err.println("[INTERACTION] Unknown type: " + type + " payload=" + payload);
         }
 
-        sendJson(exchange, 200, "{\"ok\":true}");
+        sendJson(exchange, 200, Map.of("ok", true));
     }
 
     private void handleMenu(HttpExchange exchange) throws IOException {
@@ -111,20 +112,10 @@ public final class PetBackendServer {
             return;
         }
 
-        List<MenuCommand> commands = context.getMenuCommands();
-        StringBuilder json = new StringBuilder("[");
-        for (int index = 0; index < commands.size(); index++) {
-            MenuCommand command = commands.get(index);
-            if (index > 0) {
-                json.append(',');
-            }
-            json.append('{')
-                    .append("\"id\":\"").append(escapeJson(command.id())).append("\",")
-                    .append("\"label\":\"").append(escapeJson(command.label())).append("\"")
-                    .append('}');
-        }
-        json.append(']');
-        sendJson(exchange, 200, json.toString());
+        List<Map<String, String>> commands = context.getMenuCommands().stream()
+                .map(command -> Map.of("id", command.id(), "label", command.label()))
+                .toList();
+        sendJson(exchange, 200, commands);
     }
 
     private void handleMenuExecute(HttpExchange exchange) throws IOException {
@@ -141,7 +132,7 @@ public final class PetBackendServer {
         }
 
         context.invokeMenuCommand(id);
-        sendJson(exchange, 200, "{\"ok\":true}");
+        sendJson(exchange, 200, Map.of("ok", true));
     }
 
     private void handleLog(HttpExchange exchange) throws IOException {
@@ -154,7 +145,7 @@ public final class PetBackendServer {
         String level = query.getOrDefault("level", "info");
         String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
         System.err.println("[SHELL][" + level.toUpperCase() + "] " + body);
-        sendJson(exchange, 200, "{\"ok\":true}");
+        sendJson(exchange, 200, Map.of("ok", true));
     }
 
     private void handleExit(HttpExchange exchange) throws IOException {
@@ -163,7 +154,7 @@ public final class PetBackendServer {
             return;
         }
 
-        sendJson(exchange, 200, "{\"ok\":true}");
+        sendJson(exchange, 200, Map.of("ok", true));
         shutdownHandler.run();
     }
 
@@ -193,8 +184,8 @@ public final class PetBackendServer {
         }
     }
 
-    private void sendJson(HttpExchange exchange, int status, String json) throws IOException {
-        byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
+    private void sendJson(HttpExchange exchange, int status, Object payload) throws IOException {
+        byte[] bytes = objectMapper.writeValueAsBytes(payload);
         exchange.getResponseHeaders().add("Content-Type", "application/json; charset=utf-8");
         exchange.sendResponseHeaders(status, bytes.length);
         try (OutputStream output = exchange.getResponseBody()) {
@@ -234,14 +225,6 @@ public final class PetBackendServer {
             query.put(key, value);
         }
         return query;
-    }
-
-    private static String escapeJson(String value) {
-        return value
-                .replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\r", "\\r")
-                .replace("\n", "\\n");
     }
 
     private static Map<String, String> createContentTypes() {

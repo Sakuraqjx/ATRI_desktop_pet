@@ -19,8 +19,7 @@ public final class GreetAction implements PetAction {
         context.getPetState().changeAffinity(1);
         context.getPetState().changeEnergy(-2);
 
-        context.getPetView().setExpression("^_^");
-        context.getPetView().bounce();
+        context.getPetView().previewExpression("^_^");
         context.getPetView().showMessage("见到你很开心。");
         context.getEventBus().publish(new PetActionEvent(id()));
     }

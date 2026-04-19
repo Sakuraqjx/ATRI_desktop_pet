@@ -13,7 +13,7 @@ public final class StatusPlugin implements PetPlugin {
     public void activate(PetContext context) {
         context.addMenuCommand(new MenuCommand(
                 "status.overview",
-                "查看状态",
+                "状态/查看状态",
                 () -> context.getPetView().showMessage(context.getPetState().summary())
         ));
 

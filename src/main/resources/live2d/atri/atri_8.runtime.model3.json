@@ -28,6 +28,22 @@
       {
         "Name": "excited",
         "File": "excited.exp3.json"
+      },
+      {
+        "Name": "outfit_base",
+        "File": "outfit_base.exp3.json"
+      },
+      {
+        "Name": "outfit_bikini",
+        "File": "outfit_bikini.exp3.json"
+      },
+      {
+        "Name": "outfit_sleepwear",
+        "File": "outfit_sleepwear.exp3.json"
+      },
+      {
+        "Name": "outfit_blood",
+        "File": "outfit_blood.exp3.json"
       }
     ],
     "Motions": {

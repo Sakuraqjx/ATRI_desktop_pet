@@ -2,6 +2,8 @@ package com.example.desktoppet;
 
 import com.example.desktoppet.core.PetContext;
 import com.example.desktoppet.core.PetEngine;
+import com.example.desktoppet.live2d.Live2dCatalog;
+import com.example.desktoppet.live2d.Live2dCatalogLoader;
 import com.example.desktoppet.ui.ElectronShellLauncher;
 import com.example.desktoppet.ui.PetBackendServer;
 import com.example.desktoppet.ui.PetView;
@@ -28,8 +30,13 @@ public final class MainApp {
 
     private void start() {
         try {
+            Live2dCatalog live2dCatalog = new Live2dCatalogLoader()
+                    .load(Path.of("src", "main", "resources", "live2d", "models.json").toAbsolutePath());
+
             PetContext context = new PetContext();
-            PetView petView = new PetView();
+            context.setLive2dCatalog(live2dCatalog);
+
+            PetView petView = new PetView(live2dCatalog.activeModel());
             petView.setCloseHandler(this::shutdown);
             context.setPetView(petView);
 

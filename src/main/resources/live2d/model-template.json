@@ -1,0 +1,76 @@
+{
+  "activeModelId": "your-model-id",
+  "models": [
+    {
+      "id": "your-model-id",
+      "name": "Your Character",
+      "entry": "your-model-folder/your-model.runtime.model3.json",
+      "preview": "your-model-folder/icon.jpg",
+      "defaultExpression": "neutral",
+      "expressionAliases": {
+        "^_^": "happy",
+        "owo": "excited",
+        "-_-": "sleepy",
+        "o_o": "curious"
+      },
+      "motionBindings": {
+        "react:bounce": {
+          "group": "TapBody",
+          "index": 0
+        },
+        "react:jump": {
+          "group": "TapBody",
+          "index": 1
+        },
+        "idle:rest": {
+          "group": "Idle",
+          "index": 0
+        },
+        "react:tilt": {
+          "group": "TapBody",
+          "index": 2
+        }
+      },
+      "menuExpressions": [
+        {
+          "id": "neutral",
+          "label": "中性",
+          "expression": "neutral",
+          "message": "恢复成平静表情。"
+        },
+        {
+          "id": "happy",
+          "label": "开心",
+          "expression": "happy",
+          "message": "今天心情不错。"
+        }
+      ],
+      "outfits": [
+        {
+          "id": "default",
+          "label": "默认造型",
+          "message": "换回默认造型。",
+          "parameterValues": [
+            { "id": "ParamCostumeA", "value": 0, "blend": "Overwrite" },
+            { "id": "ParamCostumeB", "value": 0, "blend": "Overwrite" }
+          ]
+        },
+        {
+          "id": "summer",
+          "label": "夏日装",
+          "message": "换上夏日装。",
+          "parameterValues": [
+            { "id": "ParamCostumeA", "value": 30, "blend": "Overwrite" },
+            { "id": "ParamCostumeB", "value": 0, "blend": "Overwrite" }
+          ]
+        },
+        {
+          "id": "formal",
+          "label": "礼服",
+          "expression": "outfit_formal",
+          "message": "换上礼服。"
+        }
+      ]
+    }
+  ]
+}

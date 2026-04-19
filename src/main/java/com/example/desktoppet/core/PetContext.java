@@ -1,5 +1,6 @@
 package com.example.desktoppet.core;
 
+import com.example.desktoppet.live2d.Live2dCatalog;
 import com.example.desktoppet.plugin.MenuCommand;
 import com.example.desktoppet.ui.PetView;
 
@@ -17,6 +18,7 @@ public final class PetContext {
     private final Random random = new Random();
 
     private PetView petView;
+    private Live2dCatalog live2dCatalog;
 
     public EventBus getEventBus() {
         return eventBus;
@@ -40,6 +42,14 @@ public final class PetContext {
 
     public void setPetView(PetView petView) {
         this.petView = petView;
+    }
+
+    public Live2dCatalog getLive2dCatalog() {
+        return live2dCatalog;
+    }
+
+    public void setLive2dCatalog(Live2dCatalog live2dCatalog) {
+        this.live2dCatalog = live2dCatalog;
     }
 
     public void runAction(String actionId) {

@@ -1,0 +1,209 @@
+{
+  "activeModelId": "atri",
+  "models": [
+    {
+      "id": "atri",
+      "name": "ATRI",
+      "entry": "atri/atri_8.runtime.model3.json",
+      "preview": "atri/icon.jpg",
+      "defaultExpression": "curious",
+      "expressionAliases": {
+        "^_^": "happy",
+        "owo": "excited",
+        "-_-": "sleepy",
+        "o_o": "curious"
+      },
+      "motionBindings": {
+        "react:bounce": {
+          "group": "TapBody",
+          "index": 0
+        },
+        "react:jump": {
+          "group": "TapBody",
+          "index": 1
+        },
+        "idle:rest": {
+          "group": "TapBody",
+          "index": 0
+        },
+        "react:tilt": {
+          "group": "TapBody",
+          "index": 1
+        }
+      },
+      "menuExpressions": [
+        {
+          "id": "neutral",
+          "label": "中性",
+          "expression": "neutral",
+          "message": "恢复成平静表情。"
+        },
+        {
+          "id": "curious",
+          "label": "好奇",
+          "expression": "curious",
+          "message": "我在认真看着你。"
+        },
+        {
+          "id": "happy",
+          "label": "开心",
+          "expression": "happy",
+          "message": "见到你就会开心。"
+        },
+        {
+          "id": "sleepy",
+          "label": "困倦",
+          "expression": "sleepy",
+          "message": "让我先眯一会。"
+        },
+        {
+          "id": "excited",
+          "label": "兴奋",
+          "expression": "excited",
+          "message": "好耶，来点有趣的。"
+        }
+      ],
+      "outfits": [
+        {
+          "id": "base",
+          "label": "默认校服",
+          "expression": "outfit_base",
+          "message": "换回默认校服。",
+          "parameterValues": [
+            { "id": "Param17", "value": 0, "blend": "Overwrite" },
+            { "id": "Param18", "value": 0, "blend": "Overwrite" },
+            { "id": "Param9", "value": 0, "blend": "Overwrite" },
+            { "id": "Param19", "value": 0, "blend": "Overwrite" },
+            { "id": "Param20", "value": 0, "blend": "Overwrite" },
+            { "id": "Param36", "value": 0, "blend": "Overwrite" },
+            { "id": "Param10", "value": 0, "blend": "Overwrite" },
+            { "id": "Param21", "value": 0, "blend": "Overwrite" }
+          ]
+        },
+        {
+          "id": "uniform_sandals",
+          "label": "校服 + 凉鞋",
+          "message": "换成校服和凉鞋。",
+          "parameterValues": [
+            { "id": "Param17", "value": 0, "blend": "Overwrite" },
+            { "id": "Param18", "value": 0, "blend": "Overwrite" },
+            { "id": "Param9", "value": 0, "blend": "Overwrite" },
+            { "id": "Param19", "value": 30, "blend": "Overwrite" },
+            { "id": "Param20", "value": 0, "blend": "Overwrite" },
+            { "id": "Param36", "value": 0, "blend": "Overwrite" },
+            { "id": "Param10", "value": 0, "blend": "Overwrite" },
+            { "id": "Param21", "value": 0, "blend": "Overwrite" }
+          ]
+        },
+        {
+          "id": "uniform_leather",
+          "label": "校服 + 皮鞋",
+          "message": "换成校服和皮鞋。",
+          "parameterValues": [
+            { "id": "Param17", "value": 0, "blend": "Overwrite" },
+            { "id": "Param18", "value": 0, "blend": "Overwrite" },
+            { "id": "Param9", "value": 0, "blend": "Overwrite" },
+            { "id": "Param19", "value": 0, "blend": "Overwrite" },
+            { "id": "Param20", "value": 30, "blend": "Overwrite" },
+            { "id": "Param36", "value": 0, "blend": "Overwrite" },
+            { "id": "Param10", "value": 0, "blend": "Overwrite" },
+            { "id": "Param21", "value": 0, "blend": "Overwrite" }
+          ]
+        },
+        {
+          "id": "bikini",
+          "label": "比基尼",
+          "expression": "outfit_bikini",
+          "message": "换上比基尼。",
+          "parameterValues": [
+            { "id": "Param17", "value": 30, "blend": "Overwrite" },
+            { "id": "Param18", "value": 0, "blend": "Overwrite" },
+            { "id": "Param9", "value": 0, "blend": "Overwrite" },
+            { "id": "Param19", "value": 0, "blend": "Overwrite" },
+            { "id": "Param20", "value": 0, "blend": "Overwrite" },
+            { "id": "Param36", "value": 0, "blend": "Overwrite" },
+            { "id": "Param10", "value": 0, "blend": "Overwrite" },
+            { "id": "Param21", "value": 0, "blend": "Overwrite" }
+          ]
+        },
+        {
+          "id": "bikini_sandals",
+          "label": "比基尼 + 凉鞋",
+          "message": "换成比基尼和凉鞋。",
+          "parameterValues": [
+            { "id": "Param17", "value": 30, "blend": "Overwrite" },
+            { "id": "Param18", "value": 0, "blend": "Overwrite" },
+            { "id": "Param9", "value": 0, "blend": "Overwrite" },
+            { "id": "Param19", "value": 30, "blend": "Overwrite" },
+            { "id": "Param20", "value": 0, "blend": "Overwrite" },
+            { "id": "Param36", "value": 0, "blend": "Overwrite" },
+            { "id": "Param10", "value": 0, "blend": "Overwrite" },
+            { "id": "Param21", "value": 0, "blend": "Overwrite" }
+          ]
+        },
+        {
+          "id": "sleepwear",
+          "label": "睡衣",
+          "expression": "outfit_sleepwear",
+          "message": "换上睡衣。",
+          "parameterValues": [
+            { "id": "Param17", "value": 0, "blend": "Overwrite" },
+            { "id": "Param18", "value": 30, "blend": "Overwrite" },
+            { "id": "Param9", "value": 0, "blend": "Overwrite" },
+            { "id": "Param19", "value": 0, "blend": "Overwrite" },
+            { "id": "Param20", "value": 0, "blend": "Overwrite" },
+            { "id": "Param36", "value": 0, "blend": "Overwrite" },
+            { "id": "Param10", "value": 0, "blend": "Overwrite" },
+            { "id": "Param21", "value": 0, "blend": "Overwrite" }
+          ]
+        },
+        {
+          "id": "sleepwear_pumpkin",
+          "label": "睡衣 + 南瓜裤",
+          "message": "换成睡衣和南瓜裤。",
+          "parameterValues": [
+            { "id": "Param17", "value": 0, "blend": "Overwrite" },
+            { "id": "Param18", "value": 30, "blend": "Overwrite" },
+            { "id": "Param9", "value": 30, "blend": "Overwrite" },
+            { "id": "Param19", "value": 0, "blend": "Overwrite" },
+            { "id": "Param20", "value": 0, "blend": "Overwrite" },
+            { "id": "Param36", "value": 0, "blend": "Overwrite" },
+            { "id": "Param10", "value": 0, "blend": "Overwrite" },
+            { "id": "Param21", "value": 0, "blend": "Overwrite" }
+          ]
+        },
+        {
+          "id": "sleepwear_sandals",
+          "label": "睡衣 + 凉鞋",
+          "message": "换成睡衣和凉鞋。",
+          "parameterValues": [
+            { "id": "Param17", "value": 0, "blend": "Overwrite" },
+            { "id": "Param18", "value": 30, "blend": "Overwrite" },
+            { "id": "Param9", "value": 0, "blend": "Overwrite" },
+            { "id": "Param19", "value": 30, "blend": "Overwrite" },
+            { "id": "Param20", "value": 0, "blend": "Overwrite" },
+            { "id": "Param36", "value": 0, "blend": "Overwrite" },
+            { "id": "Param10", "value": 0, "blend": "Overwrite" },
+            { "id": "Param21", "value": 0, "blend": "Overwrite" }
+          ]
+        },
+        {
+          "id": "blood",
+          "label": "血衣",
+          "expression": "outfit_blood",
+          "message": "切到血衣版本。",
+          "parameterValues": [
+            { "id": "Param17", "value": 0, "blend": "Overwrite" },
+            { "id": "Param18", "value": 0, "blend": "Overwrite" },
+            { "id": "Param9", "value": 0, "blend": "Overwrite" },
+            { "id": "Param19", "value": 0, "blend": "Overwrite" },
+            { "id": "Param20", "value": 0, "blend": "Overwrite" },
+            { "id": "Param36", "value": 30, "blend": "Overwrite" },
+            { "id": "Param10", "value": 30, "blend": "Overwrite" },
+            { "id": "Param21", "value": 30, "blend": "Overwrite" }
+          ]
+        }
+      ]
+    }
+  ]
+}

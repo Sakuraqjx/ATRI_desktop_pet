@@ -5,6 +5,9 @@ import com.example.desktoppet.behavior.actions.NapAction;
 import com.example.desktoppet.behavior.actions.PlayAction;
 import com.example.desktoppet.behavior.actions.ThinkAction;
 import com.example.desktoppet.interaction.PetActionEvent;
+import com.example.desktoppet.live2d.Live2dMenuExpression;
+import com.example.desktoppet.live2d.Live2dModel;
+import com.example.desktoppet.live2d.Live2dOutfit;
 import com.example.desktoppet.plugin.MenuCommand;
 import com.example.desktoppet.plugin.PetPlugin;
 
@@ -12,14 +15,19 @@ import java.util.ServiceLoader;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class PetEngine {
+    private static final int MIN_IDLE_DELAY_SECONDS = 18;
+    private static final int MAX_IDLE_DELAY_SECONDS = 32;
+
     private final PetContext context;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
         Thread thread = new Thread(runnable, "pet-idle-loop");
         thread.setDaemon(true);
         return thread;
     });
+    private final AtomicBoolean idleEnabled = new AtomicBoolean(true);
 
     public PetEngine(PetContext context) {
         this.context = context;
@@ -29,7 +37,7 @@ public final class PetEngine {
         registerBuiltInActions();
         registerBuiltInMenu();
         loadPlugins();
-        startIdleLoop();
+        scheduleNextIdleTick();
     }
 
     public void stop() {
@@ -48,16 +56,42 @@ public final class PetEngine {
         context.addMenuCommand(new MenuCommand("action.play", "互动/一起玩", () -> context.runAction("play")));
         context.addMenuCommand(new MenuCommand("action.nap", "互动/先休息", () -> context.runAction("nap")));
         context.addMenuCommand(new MenuCommand("action.think", "互动/发会呆", () -> context.runAction("think")));
-        context.addMenuCommand(new MenuCommand("expression.neutral", "表情/中性", () -> switchExpression("neutral", "恢复成平静表情。")));
-        context.addMenuCommand(new MenuCommand("expression.curious", "表情/好奇", () -> switchExpression("curious", "我在认真看着你。")));
-        context.addMenuCommand(new MenuCommand("expression.happy", "表情/开心", () -> switchExpression("happy", "见到你就会开心。")));
-        context.addMenuCommand(new MenuCommand("expression.sleepy", "表情/困倦", () -> switchExpression("sleepy", "让我先眯一会。")));
-        context.addMenuCommand(new MenuCommand("expression.excited", "表情/兴奋", () -> switchExpression("excited", "好耶，来点有趣的。")));
+        context.addMenuCommand(new MenuCommand("idle.enable", "待机/开启自动互动", this::enableIdleLoop));
+        context.addMenuCommand(new MenuCommand("idle.disable", "待机/暂停自动互动", this::disableIdleLoop));
+
+        Live2dModel activeModel = context.getLive2dCatalog().activeModel();
+        registerExpressionMenu(activeModel);
+        registerOutfitMenu(activeModel);
+    }
+
+    private void registerExpressionMenu(Live2dModel activeModel) {
+        for (Live2dMenuExpression expression : activeModel.menuExpressions()) {
+            context.addMenuCommand(new MenuCommand(
+                    "expression." + expression.id(),
+                    "表情/" + expression.label(),
+                    () -> switchExpression(expression.expression(), expression.message())
+            ));
+        }
+    }
+
+    private void registerOutfitMenu(Live2dModel activeModel) {
+        for (Live2dOutfit outfit : activeModel.outfits()) {
+            context.addMenuCommand(new MenuCommand(
+                    "outfit." + outfit.id(),
+                    "换装/" + outfit.label(),
+                    () -> switchOutfit(outfit)
+            ));
+        }
     }
 
     private void switchExpression(String expressionName, String message) {
         context.getPetView().applyNamedExpression(expressionName);
         context.getPetView().showMessage(message);
+    }
+
+    private void switchOutfit(Live2dOutfit outfit) {
+        context.getPetView().applyOutfit(outfit);
+        context.getPetView().showMessage(outfit.message());
     }
 
     private void loadPlugins() {
@@ -67,8 +101,33 @@ public final class PetEngine {
         }
     }
 
-    private void startIdleLoop() {
-        scheduler.scheduleWithFixedDelay(this::triggerIdleBehavior, 6, 6, TimeUnit.SECONDS);
+    private void enableIdleLoop() {
+        boolean changed = idleEnabled.compareAndSet(false, true);
+        context.getPetView().showMessage(changed ? "自动互动已开启，频率也调慢了。" : "自动互动本来就是开启的。");
+    }
+
+    private void disableIdleLoop() {
+        boolean changed = idleEnabled.compareAndSet(true, false);
+        context.getPetView().showMessage(changed ? "自动互动已暂停。" : "自动互动已经是暂停状态。");
+    }
+
+    private void scheduleNextIdleTick() {
+        long delaySeconds = MIN_IDLE_DELAY_SECONDS
+                + context.getRandom().nextInt(MAX_IDLE_DELAY_SECONDS - MIN_IDLE_DELAY_SECONDS + 1);
+        scheduler.schedule(this::runIdleCycle, delaySeconds, TimeUnit.SECONDS);
+    }
+
+    private void runIdleCycle() {
+        try {
+            if (!idleEnabled.get()) {
+                return;
+            }
+            triggerIdleBehavior();
+        } finally {
+            if (!scheduler.isShutdown()) {
+                scheduleNextIdleTick();
+            }
+        }
     }
 
     private void triggerIdleBehavior() {

@@ -3,11 +3,59 @@ const path = require("path");
 
 let win = null;
 let dragOffset = null;
+let backendWatchdog = null;
+let backendFailureCount = 0;
+
+const BACKEND_PING_INTERVAL_MS = 3000;
+const BACKEND_PING_TIMEOUT_MS = 1500;
+const BACKEND_MAX_FAILURES = 2;
 
 const backendUrl = (() => {
   const value = process.argv.find((arg) => arg.startsWith("--backend="));
   return value ? value.slice("--backend=".length) : "http://127.0.0.1:18080";
 })();
+
+function stopBackendWatchdog() {
+  if (backendWatchdog) {
+    clearInterval(backendWatchdog);
+    backendWatchdog = null;
+  }
+}
+
+async function pingBackend() {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), BACKEND_PING_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${backendUrl}/api/state`, {
+      cache: "no-store",
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new Error(`backend returned ${response.status}`);
+    }
+
+    backendFailureCount = 0;
+  } catch (error) {
+    backendFailureCount += 1;
+    console.error(`[BACKEND] ping failed (${backendFailureCount}/${BACKEND_MAX_FAILURES}):`, error.message);
+    if (backendFailureCount >= BACKEND_MAX_FAILURES) {
+      stopBackendWatchdog();
+      app.quit();
+    }
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function startBackendWatchdog() {
+  stopBackendWatchdog();
+  backendFailureCount = 0;
+  backendWatchdog = setInterval(() => {
+    pingBackend().catch(() => {});
+  }, BACKEND_PING_INTERVAL_MS);
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -31,8 +79,15 @@ function createWindow() {
   win.setAlwaysOnTop(true, "screen-saver");
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   win.loadURL(`${backendUrl}/index.html`);
+  startBackendWatchdog();
+
+  win.webContents.on("did-fail-load", (_event, code, description) => {
+    console.error(`[BACKEND] page load failed: ${code} ${description}`);
+    app.quit();
+  });
 
   win.on("closed", () => {
+    stopBackendWatchdog();
     fetch(`${backendUrl}/api/exit`, { method: "POST" }).catch(() => {});
     win = null;
   });
@@ -82,7 +137,9 @@ function buildTemplate(tree) {
         await fetch(
           `${backendUrl}/api/menu/execute?id=${encodeURIComponent(value.id)}`,
           { method: "POST" }
-        ).catch(() => {});
+        ).catch(() => {
+          app.quit();
+        });
       }
     });
   }
@@ -91,22 +148,31 @@ function buildTemplate(tree) {
 }
 
 async function showContextMenu() {
-  const response = await fetch(`${backendUrl}/api/menu`, { cache: "no-store" });
-  const commands = await response.json();
-  const template = buildTemplate(nestCommands(commands));
-
-  template.push({ type: "separator" });
-  template.push({
-    label: "退出",
-    click: () => {
-      if (win) {
-        win.close();
-      }
+  try {
+    const response = await fetch(`${backendUrl}/api/menu`, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`backend returned ${response.status}`);
     }
-  });
 
-  const menu = Menu.buildFromTemplate(template);
-  menu.popup({ window: win });
+    const commands = await response.json();
+    const template = buildTemplate(nestCommands(commands));
+
+    template.push({ type: "separator" });
+    template.push({
+      label: "退出",
+      click: () => {
+        if (win) {
+          win.close();
+        }
+      }
+    });
+
+    const menu = Menu.buildFromTemplate(template);
+    menu.popup({ window: win });
+  } catch (error) {
+    console.error("[BACKEND] context menu fetch failed:", error.message);
+    app.quit();
+  }
 }
 
 ipcMain.handle("shell:show-context-menu", async () => {
@@ -141,6 +207,10 @@ ipcMain.on("shell:drag-end", () => {
 });
 
 app.whenReady().then(createWindow);
+
+app.on("before-quit", () => {
+  stopBackendWatchdog();
+});
 
 app.on("window-all-closed", () => {
   app.quit();

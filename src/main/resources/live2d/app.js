@@ -4,7 +4,6 @@
     const status = document.getElementById("pet-status");
     const loadingLayer = document.getElementById("loading-layer");
 
-    const MODEL_URL = "./atri/atri_8.runtime.model3.json";
     const PIXI_URL = "https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js";
     const CUBISM_CORE_URL = "https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js";
     const PIXI_LIVE2D_URL = "https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js";
@@ -12,30 +11,22 @@
     const state = {
         messageRevision: -1,
         expressionRevision: -1,
+        outfitRevision: -1,
         motionRevision: -1
-    };
-
-    const expressionMap = {
-        "^_^": "happy",
-        "owo": "excited",
-        "-_-": "sleepy",
-        "o_o": "curious"
-    };
-
-    const motionMap = {
-        "react:bounce": { group: "TapBody", index: 0 },
-        "react:jump": { group: "TapBody", index: 1 },
-        "idle:rest": { group: "TapBody", index: 0 },
-        "react:tilt": { group: "TapBody", index: 1 }
     };
 
     let app = null;
     let model = null;
+    let modelConfig = null;
     let singleTapTimer = null;
     let dragMoved = false;
     let dragging = false;
     let pointerStart = null;
     let statusHideTimer = null;
+    let expressionFileMap = null;
+    let outfitParameterCache = new Map();
+    let currentOutfitExpression = null;
+    let currentOutfitParameters = null;
 
     function backendUrl(path) {
         return `${window.location.origin}${path}`;
@@ -58,10 +49,10 @@
         );
     }
 
-    async function fetchState() {
-        const response = await fetch(backendUrl("/api/state"), { cache: "no-store" });
+    async function fetchJson(path) {
+        const response = await fetch(backendUrl(path), { cache: "no-store" });
         if (!response.ok) {
-            throw new Error(`State poll failed: ${response.status}`);
+            throw new Error(`${path} failed: ${response.status}`);
         }
         return response.json();
     }
@@ -91,25 +82,6 @@
                 status.classList.add("is-hidden");
                 statusHideTimer = null;
             }, 2600);
-        }
-    }
-
-    function replayMotionClass(className) {
-        shell.classList.remove("motion-bounce", "motion-jump", "motion-rest", "motion-tilt");
-        void shell.offsetWidth;
-        shell.classList.add(className);
-    }
-
-    function playFallbackMotion(group, name) {
-        const key = `${group}:${name}`;
-        if (key === "react:bounce") {
-            replayMotionClass("motion-bounce");
-        } else if (key === "react:jump") {
-            replayMotionClass("motion-jump");
-        } else if (key === "idle:rest") {
-            replayMotionClass("motion-rest");
-        } else if (key === "react:tilt") {
-            replayMotionClass("motion-tilt");
         }
     }
 
@@ -149,7 +121,11 @@
         }
     }
 
-    async function bootstrapCanvas() {
+    function ensurePixiApp() {
+        if (app) {
+            return;
+        }
+
         app = new window.PIXI.Application({
             view: canvas,
             autoStart: true,
@@ -159,20 +135,43 @@
             resizeTo: shell
         });
 
+        app.ticker.add(() => {
+            enforceOutfitParameters();
+        });
+
         const renderer = app.renderer;
         const gl = renderer.gl;
         const attrs = gl && gl.getContextAttributes ? gl.getContextAttributes() : null;
         report("info", `renderer=${renderer.type} attrs=${JSON.stringify(attrs)}`);
+    }
+
+    async function loadModel() {
+        if (!modelConfig) {
+            throw new Error("No model configuration available.");
+        }
+
+        ensurePixiApp();
+
+        if (model) {
+            app.stage.removeChild(model);
+            model.destroy();
+            model = null;
+        }
+
+        expressionFileMap = null;
+        outfitParameterCache = new Map();
+        currentOutfitExpression = null;
+        currentOutfitParameters = null;
 
         const Live2DModel = window.PIXI.live2d.Live2DModel;
-        model = await Live2DModel.from(MODEL_URL, { autoInteract: false });
+        model = await Live2DModel.from(`./${modelConfig.entry}`, { autoInteract: false });
         model.anchor.set(0.5, 0.5);
         app.stage.addChild(model);
         layoutModel();
 
         loadingLayer.classList.add("is-hidden");
-        setStatus("ATRI 已就位。");
-        report("info", "bootstrapCanvas complete");
+        setStatus(`${modelConfig.name} 已就位。`);
+        report("info", `model loaded: ${modelConfig.id}`);
     }
 
     function layoutModel() {
@@ -200,12 +199,110 @@
         );
     }
 
+    async function ensureExpressionFileMap() {
+        if (expressionFileMap) {
+            return expressionFileMap;
+        }
+
+        const modelJson = await fetchJson(`/${modelConfig.entry}`);
+        const expressions = modelJson?.FileReferences?.Expressions || [];
+        expressionFileMap = new Map();
+        for (const expression of expressions) {
+            if (expression?.Name && expression?.File) {
+                expressionFileMap.set(expression.Name, expression.File);
+            }
+        }
+        return expressionFileMap;
+    }
+
+    function modelBaseDir() {
+        const lastSlash = modelConfig.entry.lastIndexOf("/");
+        return lastSlash >= 0 ? modelConfig.entry.slice(0, lastSlash + 1) : "";
+    }
+
+    function normalizeOutfitParameters(parameters) {
+        if (!Array.isArray(parameters) || parameters.length === 0) {
+            return null;
+        }
+
+        return parameters
+            .filter((parameter) => parameter && typeof parameter.id === "string")
+            .map((parameter) => ({
+                id: parameter.id,
+                value: Number(parameter.value ?? 0),
+                blend: String(parameter.blend ?? "Overwrite")
+            }));
+    }
+
+    async function loadOutfitParameters(expressionName) {
+        if (!expressionName) {
+            return null;
+        }
+        if (outfitParameterCache.has(expressionName)) {
+            return outfitParameterCache.get(expressionName);
+        }
+
+        const fileMap = await ensureExpressionFileMap();
+        const relativeFile = fileMap.get(expressionName);
+        if (!relativeFile) {
+            report("warn", `outfit expression not found: ${expressionName}`);
+            outfitParameterCache.set(expressionName, null);
+            return null;
+        }
+
+        const payload = await fetchJson(`/${modelBaseDir()}${relativeFile}`);
+        const parameters = Array.isArray(payload?.Parameters)
+            ? payload.Parameters
+                .filter((parameter) => parameter && typeof parameter.Id === "string")
+                .map((parameter) => ({
+                    id: parameter.Id,
+                    value: Number(parameter.Value ?? 0),
+                    blend: String(parameter.Blend ?? "Overwrite")
+                }))
+            : [];
+
+        outfitParameterCache.set(expressionName, parameters);
+        return parameters;
+    }
+
+    async function applyOutfit(expressionName, inlineParameters) {
+        currentOutfitExpression = expressionName || null;
+        currentOutfitParameters = normalizeOutfitParameters(inlineParameters);
+        if (!currentOutfitParameters && currentOutfitExpression) {
+            currentOutfitParameters = await loadOutfitParameters(currentOutfitExpression);
+        }
+        enforceOutfitParameters();
+    }
+
+    function enforceOutfitParameters() {
+        if (!model || !currentOutfitParameters || currentOutfitParameters.length === 0) {
+            return;
+        }
+
+        const coreModel = model?.internalModel?.coreModel;
+        if (!coreModel) {
+            return;
+        }
+
+        for (const parameter of currentOutfitParameters) {
+            if (parameter.blend === "Add" && typeof coreModel.addParameterValueById === "function") {
+                coreModel.addParameterValueById(parameter.id, parameter.value);
+                continue;
+            }
+            if (typeof coreModel.setParameterValueById === "function") {
+                coreModel.setParameterValueById(parameter.id, parameter.value);
+            }
+        }
+    }
+
     async function applyExpression(kind, value) {
         if (!model || typeof model.expression !== "function") {
             return;
         }
 
-        const expressionName = kind === "named" ? value : (expressionMap[value] || value);
+        const aliases = modelConfig?.expressionAliases || {};
+        const expressionName = kind === "named" ? value : (aliases[value] || value);
+
         try {
             await model.expression(expressionName);
         } catch (error) {
@@ -214,12 +311,15 @@
     }
 
     async function applyMotion(group, name) {
-        playFallbackMotion(group, name);
+        if (!group || !name) {
+            return;
+        }
         if (!model) {
             return;
         }
 
-        const mapped = motionMap[`${group}:${name}`];
+        const motionBindings = modelConfig?.motionBindings || {};
+        const mapped = motionBindings[`${group}:${name}`];
         if (!mapped) {
             return;
         }
@@ -232,11 +332,16 @@
     }
 
     async function syncState() {
-        const snapshot = await fetchState();
+        const snapshot = await fetchJson("/api/state");
 
         if (snapshot.messageRevision !== state.messageRevision) {
             state.messageRevision = snapshot.messageRevision;
             setStatus(snapshot.message);
+        }
+
+        if (snapshot.outfitRevision !== state.outfitRevision) {
+            state.outfitRevision = snapshot.outfitRevision;
+            await applyOutfit(snapshot.outfitExpression, snapshot.outfitParameters);
         }
 
         if (snapshot.expressionRevision !== state.expressionRevision) {
@@ -340,9 +445,10 @@
     (async function init() {
         try {
             attachInteractions();
-            setStatus("正在唤醒 ATRI...", false);
+            setStatus("正在读取模型配置...", false);
+            modelConfig = await fetchJson("/api/model");
             await ensureRuntime();
-            await bootstrapCanvas();
+            await loadModel();
             await syncState();
             window.setInterval(() => {
                 syncState().catch((error) => report("error", error.message));
