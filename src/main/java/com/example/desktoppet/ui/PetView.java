@@ -119,19 +119,19 @@ public final class PetView {
     }
 
     public void bounce() {
-        // Intentionally disabled to keep the desktop pet stable.
+        playMotion("react", "bounce");
     }
 
     public void jump() {
-        // Intentionally disabled to keep the desktop pet stable.
+        playMotion("react", "jump");
     }
 
     public void rest() {
-        // Intentionally disabled to keep the desktop pet stable.
+        playMotion("idle", "rest");
     }
 
     public void tilt() {
-        // Intentionally disabled to keep the desktop pet stable.
+        playMotion("react", "tilt");
     }
 
     public PetShellSnapshot snapshot(PetState petState) {
@@ -163,6 +163,12 @@ public final class PetView {
 
     public void requestClose() {
         closeHandler.run();
+    }
+
+    private void playMotion(String group, String name) {
+        motionGroup = group;
+        motionName = name;
+        motionRevision.incrementAndGet();
     }
 
     private void setPersistentExpression(String kind, String value) {

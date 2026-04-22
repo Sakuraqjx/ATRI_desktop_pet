@@ -3,6 +3,27 @@ setlocal
 
 cd /d "%~dp0"
 
+set "MODEL_ID=atri"
+
+:parse_args
+if "%~1"=="" goto after_args
+if /I "%~1"=="--check" (
+    set "CHECK_ONLY=1"
+    shift
+    goto parse_args
+)
+if /I "%~1"=="--model" (
+    if not "%~2"=="" (
+        set "MODEL_ID=%~2"
+        shift
+    )
+    shift
+    goto parse_args
+)
+shift
+goto parse_args
+
+:after_args
 where mvn >nul 2>nul
 if errorlevel 1 (
     echo [ERROR] Maven was not found in PATH.
@@ -19,8 +40,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
-if /I "%~1"=="--check" (
-    echo [INFO] Startup script check passed.
+if defined CHECK_ONLY (
+    echo [INFO] Startup script check passed for model "%MODEL_ID%".
     exit /b 0
 )
 
@@ -37,8 +58,8 @@ if not exist "desktop-shell\node_modules\electron" (
     popd
 )
 
-echo [INFO] Launching Java desktop pet backend...
-mvn -q compile exec:java 1> desktop-pet.out.log 2> desktop-pet.err.log
+echo [INFO] Launching Java desktop pet backend for model "%MODEL_ID%"...
+mvn -q -Ddesktop.pet.model=%MODEL_ID% compile exec:java 1> desktop-pet.out.log 2> desktop-pet.err.log
 
 if errorlevel 1 (
     echo.

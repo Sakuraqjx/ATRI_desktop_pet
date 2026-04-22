@@ -19,6 +19,7 @@ public final class PlayAction implements PetAction {
         context.getPetState().changeAffinity(2);
         context.getPetState().changeEnergy(-10);
 
+        context.getPetView().jump();
         context.getPetView().previewExpression("owo");
         context.getPetView().showMessage("来玩吧。");
         context.getEventBus().publish(new PetActionEvent(id()));

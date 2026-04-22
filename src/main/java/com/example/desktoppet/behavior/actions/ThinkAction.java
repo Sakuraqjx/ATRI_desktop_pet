@@ -26,6 +26,7 @@ public final class ThinkAction implements PetAction {
         context.getPetState().changeEnergy(-1);
 
         int index = context.getRandom().nextInt(THOUGHTS.length);
+        context.getPetView().tilt();
         context.getPetView().previewExpression("o_o");
         context.getPetView().showMessage(THOUGHTS[index]);
         context.getEventBus().publish(new PetActionEvent(id()));

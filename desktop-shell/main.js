@@ -1,14 +1,18 @@
-const { app, BrowserWindow, Menu, ipcMain } = require("electron");
+const { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage } = require("electron");
 const path = require("path");
 
 let win = null;
+let tray = null;
 let dragOffset = null;
 let backendWatchdog = null;
 let backendFailureCount = 0;
+let forceQuit = false;
 
 const BACKEND_PING_INTERVAL_MS = 3000;
 const BACKEND_PING_TIMEOUT_MS = 1500;
 const BACKEND_MAX_FAILURES = 2;
+const TRAY_TOOLTIP = "Desktop Pet";
+const TRAY_ICON_SIZE = 16;
 
 const backendUrl = (() => {
   const value = process.argv.find((arg) => arg.startsWith("--backend="));
@@ -20,6 +24,104 @@ function stopBackendWatchdog() {
     clearInterval(backendWatchdog);
     backendWatchdog = null;
   }
+}
+
+function requestAppQuit() {
+  forceQuit = true;
+  app.quit();
+}
+
+function trayIconPath() {
+  return path.resolve(
+    __dirname,
+    "..",
+    "src",
+    "main",
+    "resources",
+    "live2d",
+    "atri",
+    "icon.jpg"
+  );
+}
+
+function createTrayIcon() {
+  const image = nativeImage.createFromPath(trayIconPath());
+  if (image.isEmpty()) {
+    return nativeImage.createEmpty();
+  }
+
+  return image.resize({
+    width: TRAY_ICON_SIZE,
+    height: TRAY_ICON_SIZE
+  });
+}
+
+function isWindowVisible() {
+  return Boolean(win && !win.isDestroyed() && win.isVisible());
+}
+
+function showWindow() {
+  if (!win || win.isDestroyed()) {
+    return;
+  }
+
+  if (win.isMinimized()) {
+    win.restore();
+  }
+
+  win.show();
+  win.focus();
+  updateTrayMenu();
+}
+
+function hideToTray() {
+  if (!win || win.isDestroyed()) {
+    return;
+  }
+
+  win.hide();
+  updateTrayMenu();
+}
+
+function updateTrayMenu() {
+  if (!tray) {
+    return;
+  }
+
+  const visible = isWindowVisible();
+  const menu = Menu.buildFromTemplate([
+    {
+      label: visible ? "隐藏到后台" : "显示桌宠",
+      click: () => {
+        if (isWindowVisible()) {
+          hideToTray();
+          return;
+        }
+        showWindow();
+      }
+    },
+    {
+      label: "退出",
+      click: () => {
+        requestAppQuit();
+      }
+    }
+  ]);
+
+  tray.setContextMenu(menu);
+  tray.setToolTip(visible ? `${TRAY_TOOLTIP} - 运行中` : `${TRAY_TOOLTIP} - 已隐藏`);
+}
+
+function createTray() {
+  if (tray) {
+    return;
+  }
+
+  tray = new Tray(createTrayIcon());
+  tray.on("click", () => {
+    showWindow();
+  });
+  updateTrayMenu();
 }
 
 async function pingBackend() {
@@ -42,7 +144,7 @@ async function pingBackend() {
     console.error(`[BACKEND] ping failed (${backendFailureCount}/${BACKEND_MAX_FAILURES}):`, error.message);
     if (backendFailureCount >= BACKEND_MAX_FAILURES) {
       stopBackendWatchdog();
-      app.quit();
+      requestAppQuit();
     }
   } finally {
     clearTimeout(timeoutId);
@@ -83,13 +185,31 @@ function createWindow() {
 
   win.webContents.on("did-fail-load", (_event, code, description) => {
     console.error(`[BACKEND] page load failed: ${code} ${description}`);
-    app.quit();
+    requestAppQuit();
+  });
+
+  win.on("close", (event) => {
+    if (forceQuit) {
+      return;
+    }
+
+    event.preventDefault();
+    hideToTray();
+  });
+
+  win.on("show", () => {
+    updateTrayMenu();
+  });
+
+  win.on("hide", () => {
+    updateTrayMenu();
   });
 
   win.on("closed", () => {
     stopBackendWatchdog();
     fetch(`${backendUrl}/api/exit`, { method: "POST" }).catch(() => {});
     win = null;
+    updateTrayMenu();
   });
 }
 
@@ -138,7 +258,7 @@ function buildTemplate(tree) {
           `${backendUrl}/api/menu/execute?id=${encodeURIComponent(value.id)}`,
           { method: "POST" }
         ).catch(() => {
-          app.quit();
+          requestAppQuit();
         });
       }
     });
@@ -159,11 +279,15 @@ async function showContextMenu() {
 
     template.push({ type: "separator" });
     template.push({
+      label: "隐藏到后台",
+      click: () => {
+        hideToTray();
+      }
+    });
+    template.push({
       label: "退出",
       click: () => {
-        if (win) {
-          win.close();
-        }
+        requestAppQuit();
       }
     });
 
@@ -171,7 +295,7 @@ async function showContextMenu() {
     menu.popup({ window: win });
   } catch (error) {
     console.error("[BACKEND] context menu fetch failed:", error.message);
-    app.quit();
+    requestAppQuit();
   }
 }
 
@@ -206,12 +330,22 @@ ipcMain.on("shell:drag-end", () => {
   dragOffset = null;
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createTray();
+  createWindow();
+});
 
 app.on("before-quit", () => {
+  forceQuit = true;
   stopBackendWatchdog();
 });
 
 app.on("window-all-closed", () => {
-  app.quit();
+  if (forceQuit) {
+    app.quit();
+  }
+});
+
+app.on("activate", () => {
+  showWindow();
 });

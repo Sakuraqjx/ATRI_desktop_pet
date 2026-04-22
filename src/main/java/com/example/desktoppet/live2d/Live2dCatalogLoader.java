@@ -162,11 +162,7 @@ public final class Live2dCatalogLoader {
         try {
             JsonNode root = objectMapper.readTree(entryPath.toFile());
             String displayInfo = root.path("FileReferences").path("DisplayInfo").asText("");
-            if (displayInfo.isBlank()) {
-                return Map.of();
-            }
-
-            Path displayInfoPath = entryPath.getParent().resolve(displayInfo).normalize();
+            Path displayInfoPath = resolveDisplayInfoPath(entryPath, displayInfo);
             if (!Files.isRegularFile(displayInfoPath)) {
                 return Map.of();
             }
@@ -188,6 +184,35 @@ public final class Live2dCatalogLoader {
             return names;
         } catch (IOException exception) {
             return Map.of();
+        }
+    }
+
+    private Path resolveDisplayInfoPath(Path entryPath, String displayInfo) {
+        Path modelDirectory = entryPath.getParent();
+        if (modelDirectory == null) {
+            return entryPath;
+        }
+        if (displayInfo != null && !displayInfo.isBlank()) {
+            return modelDirectory.resolve(displayInfo).normalize();
+        }
+
+        String fileName = entryPath.getFileName().toString();
+        String cdiCandidateName = fileName
+                .replace(".model3.json", ".cdi3.json")
+                .replace(".runtime.cdi3.json", ".cdi3.json");
+        Path directCandidate = modelDirectory.resolve(cdiCandidateName).normalize();
+        if (Files.isRegularFile(directCandidate)) {
+            return directCandidate;
+        }
+
+        try (Stream<Path> stream = Files.list(modelDirectory)) {
+            return stream
+                    .filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().toLowerCase().endsWith(".cdi3.json"))
+                    .findFirst()
+                    .orElse(directCandidate);
+        } catch (IOException exception) {
+            return directCandidate;
         }
     }
 

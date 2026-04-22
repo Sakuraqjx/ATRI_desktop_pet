@@ -18,6 +18,7 @@ public final class NapAction implements PetAction {
         context.getPetState().setActivity(PetActivity.RESTING);
         context.getPetState().changeEnergy(12);
 
+        context.getPetView().rest();
         context.getPetView().previewExpression("-_-");
         context.getPetView().showMessage("先休息一下。");
         context.getEventBus().publish(new PetActionEvent(id()));

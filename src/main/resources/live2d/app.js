@@ -3,6 +3,7 @@
     const canvas = document.getElementById("live2d-canvas");
     const status = document.getElementById("pet-status");
     const loadingLayer = document.getElementById("loading-layer");
+    const fallbackImage = document.getElementById("fallback-image");
 
     const PIXI_URL = "https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js";
     const CUBISM_CORE_URL = "https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js";
@@ -19,6 +20,7 @@
     let app = null;
     let model = null;
     let modelConfig = null;
+    let modelDefinition = null;
     let singleTapTimer = null;
     let dragMoved = false;
     let dragging = false;
@@ -30,6 +32,7 @@
     let currentBaseExpressionParameters = null;
     let currentOverlayParameterSets = [];
     let currentOutfitParameters = null;
+    let currentVoiceAudio = null;
 
     function backendUrl(path) {
         return `${window.location.origin}${path}`;
@@ -164,11 +167,13 @@
         }
 
         expressionFileMap = null;
+        modelDefinition = null;
         expressionParameterCache = new Map();
         outfitParameterCache = new Map();
         currentBaseExpressionParameters = null;
         currentOverlayParameterSets = [];
         currentOutfitParameters = null;
+        stopCurrentVoiceAudio();
 
         const Live2DModel = window.PIXI.live2d.Live2DModel;
         model = await Live2DModel.from(`./${modelConfig.entry}`, { autoInteract: false });
@@ -206,12 +211,20 @@
         );
     }
 
+    async function ensureModelDefinition() {
+        if (modelDefinition) {
+            return modelDefinition;
+        }
+        modelDefinition = await fetchJson(`/${modelConfig.entry}`);
+        return modelDefinition;
+    }
+
     async function ensureExpressionFileMap() {
         if (expressionFileMap) {
             return expressionFileMap;
         }
 
-        const modelJson = await fetchJson(`/${modelConfig.entry}`);
+        const modelJson = await ensureModelDefinition();
         const expressions = modelJson?.FileReferences?.Expressions || [];
         expressionFileMap = new Map();
         for (const expression of expressions) {
@@ -288,6 +301,15 @@
         for (const parameter of parameters) {
             coreModel.setParameterValueById(parameter.id, 0);
         }
+    }
+
+    function stopCurrentVoiceAudio() {
+        if (!currentVoiceAudio) {
+            return;
+        }
+        currentVoiceAudio.pause();
+        currentVoiceAudio.currentTime = 0;
+        currentVoiceAudio = null;
     }
 
     async function applyOutfit(expressionName, inlineParameters) {
@@ -380,10 +402,7 @@
     }
 
     async function applyMotion(group, name) {
-        if (!group || !name) {
-            return;
-        }
-        if (!model) {
+        if (!group || !name || !model) {
             return;
         }
 
@@ -395,8 +414,33 @@
 
         try {
             await model.motion(mapped.group, mapped.index);
+            await playMotionVoice(mapped.group, mapped.index);
         } catch (error) {
             report("error", `motion failed: ${error.stack || error.message}`);
+        }
+    }
+
+    async function playMotionVoice(group, index) {
+        const modelJson = await ensureModelDefinition();
+        const motionEntry = modelJson?.FileReferences?.Motions?.[group]?.[index];
+        const sound = motionEntry?.Sound;
+        if (!sound) {
+            return;
+        }
+
+        stopCurrentVoiceAudio();
+        currentVoiceAudio = new Audio(`/${modelBaseDir()}${sound}`);
+        currentVoiceAudio.preload = "auto";
+        currentVoiceAudio.addEventListener("ended", () => {
+            if (currentVoiceAudio && currentVoiceAudio.ended) {
+                currentVoiceAudio = null;
+            }
+        }, { once: true });
+
+        try {
+            await currentVoiceAudio.play();
+        } catch (error) {
+            report("warn", `voice failed: ${error.message}`);
         }
     }
 
@@ -521,6 +565,11 @@
             attachInteractions();
             setStatus("正在读取模型配置...", false);
             modelConfig = await fetchJson("/api/model");
+            document.title = `${modelConfig.name} Desktop Pet`;
+            if (fallbackImage && modelConfig.preview) {
+                fallbackImage.src = `./${modelConfig.preview}`;
+                fallbackImage.alt = `${modelConfig.name} preview`;
+            }
             await ensureRuntime();
             await loadModel();
             await syncState();

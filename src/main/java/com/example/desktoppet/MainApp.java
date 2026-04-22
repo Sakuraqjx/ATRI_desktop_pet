@@ -32,6 +32,7 @@ public final class MainApp {
         try {
             Live2dCatalog live2dCatalog = new Live2dCatalogLoader()
                     .load(Path.of("src", "main", "resources", "live2d", "models.json").toAbsolutePath());
+            live2dCatalog = overrideActiveModel(live2dCatalog);
 
             PetContext context = new PetContext();
             context.setLive2dCatalog(live2dCatalog);
@@ -54,7 +55,7 @@ public final class MainApp {
             shellLauncher = new ElectronShellLauncher(Path.of("desktop-shell").toAbsolutePath());
             shellLauncher.launch(backendServer.getBaseUrl(), this::shutdown);
 
-            petView.showMessage("你好，我已经准备好陪你了。");
+            petView.showMessage("你好，" + live2dCatalog.activeModel().name() + " 已经准备好陪你了。");
             Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown, "desktop-pet-shutdown"));
             shutdownLatch.await();
         } catch (InterruptedException interruptedException) {
@@ -64,6 +65,25 @@ public final class MainApp {
             shutdown();
             throw new IllegalStateException("Failed to start desktop pet.", exception);
         }
+    }
+
+    private Live2dCatalog overrideActiveModel(Live2dCatalog live2dCatalog) {
+        String selectedModelId = System.getProperty("desktop.pet.model");
+        if (selectedModelId == null || selectedModelId.isBlank()) {
+            selectedModelId = System.getenv("DESKTOP_PET_MODEL");
+        }
+        if (selectedModelId == null || selectedModelId.isBlank()) {
+            return live2dCatalog;
+        }
+
+        String normalizedId = selectedModelId.trim();
+        boolean exists = live2dCatalog.models().stream()
+                .anyMatch(model -> model.id().equals(normalizedId));
+        if (!exists) {
+            throw new IllegalStateException("Unknown Live2D model id: " + normalizedId);
+        }
+
+        return new Live2dCatalog(normalizedId, live2dCatalog.models());
     }
 
     private void shutdown() {
